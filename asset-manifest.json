@@ -1,0 +1,14 @@
+{
+  "files": {
+    "main.css": "/st60-web-interface-main/static/css/main.bb458a76.css",
+    "main.js": "/st60-web-interface-main/static/js/main.e94b4777.js",
+    "index.html": "/st60-web-interface-main/index.html",
+    "static/media/st-logo.svg": "/st60-web-interface-main/static/media/st-logo.01d65641d9828fd6847ef785b4019063.svg",
+    "main.bb458a76.css.map": "/st60-web-interface-main/static/css/main.bb458a76.css.map",
+    "main.e94b4777.js.map": "/st60-web-interface-main/static/js/main.e94b4777.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.bb458a76.css",
+    "static/js/main.e94b4777.js"
+  ]
+}
