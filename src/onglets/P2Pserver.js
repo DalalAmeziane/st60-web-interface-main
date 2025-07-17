@@ -34,32 +34,38 @@ const P2Pserver = ({ allCharacteristics }) => {
   }, [allCharacteristics]);
 
   // Réception des notifications
-  const notifHandler = (event) => {
-    const buf = new Uint8Array(event.target.value.buffer);
-    const type = String.fromCharCode(buf[0]);
-    const value = new DataView(buf.buffer).getFloat32(1, true);
-    createLogElement(buf, 1, "P2Pserver NOTIFICATION RECEIVED");
 
-    const timestamp = new Date().toLocaleTimeString();
+// Ajoute un état global pour un compteur
+//const [tick, setTick] = useState(0);
 
-    if (type === 'D' || type === 'd') {
-      // 👉 Ajout : on ne trace le débit que si throughputActive est true
-      if (throughputActive) {
-        setThroughputData(prev => [
-          ...prev.slice(-29),
-          { label: timestamp, value: parseFloat(value.toFixed(0)) }
-        ]);
+const notifHandler = (event) => {
+  const buf = new Uint8Array(event.target.value.buffer);
+  const type = String.fromCharCode(buf[0]);
+  const value = new DataView(buf.buffer).getFloat32(1, true);
+
+  if (type === 'D' || type === 'd') {
+    // débit : on continue d’empiler (tu peux aussi limiter si tu veux)
+    setThroughputData(prevData => [
+      ...prevData.slice(-29),
+      { label: prevData.length + 1, value: parseFloat(value.toFixed(0)) }
+    ]);
+  }
+
+  if (type === 'L' || type === 'l') {
+    // latence : on limite à 30 points
+    setLatencyData(prevData => {
+      if (prevData.length >= 30) {
+        return [{ label: 1, value: parseFloat(value.toFixed(2)) }];
+      } else {
+        return [
+          ...prevData,
+          { label: prevData.length + 1, value: parseFloat(value.toFixed(2)) }
+        ];
       }
-    }
+    });
+  }
+};
 
-    if (type === 'L' || type === 'l') {
-      // Latence toujours tracée
-      setLatencyData(prev => [
-        ...prev.slice(-29),
-        { label: timestamp, value: parseFloat(value.toFixed(2)) }
-      ]);
-    }
-  };
 
   const toggleNotifications = async () => {
     if (!notifyChar) return;

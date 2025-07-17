@@ -44,38 +44,49 @@ const ChartCard = ({ title, data }) => {
   };
 
   // Ajuste l’axe Y en fonction du titre
-  let yTicks = { beginAtZero: true };
-  if (title.includes('Throughput')) {
-    yTicks = { beginAtZero: true, stepSize: 300, max: 1200 };
-  }
-  if (title.includes('Latency')) {
-    yTicks = { beginAtZero: true, stepSize: 10, max: 100 };
-  }
+  let yOptions = {};
+if (title.includes('Throughput')) {
+  yOptions = {
+    min: 900,
+    max: 960,
+    ticks: {
+      stepSize: 10,
+    }
+  };
+}
+if (title.includes('Latency')) {
+  yOptions = {
+    min: 0,
+    max: 1,
+    ticks: {
+      stepSize: 0.1,
+    }
+  };
+}
 
   const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: {
-      duration: 300,
-      easing: 'easeOutQuart',
-    },
-    scales: {
-      y: {
-        ticks: yTicks,
-      },
-      x: {
-        ticks: {
-          maxRotation: 45,
-          minRotation: 45,
-        }
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: {
+    duration: 300,
+    easing: 'easeOutQuart',
+  },
+  scales: {
+    y: yOptions,
+    x: {
+      ticks: {
+        // ici tu peux laisser par défaut pour afficher ton compteur
+        autoSkip: true,
+        maxRotation: 0,
+        minRotation: 0,
       }
-    },
-    plugins: {
-      legend: {
-        display: false,
-      },
-    },
-  };
+    }
+  },
+  plugins: {
+    legend: { display: false },
+  },
+};
+
 
   return (
     <div className="chart-card" style={{ height: "300px" }}>
