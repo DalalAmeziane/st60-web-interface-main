@@ -16,6 +16,7 @@
 
 import React, { useState } from 'react';
 import Header from './components/Header';
+import Home from './components/Home';
 import P2Pserver from './onglets/P2Pserver';
 import { BrowserRouter, Route, Link, Routes } from 'react-router-dom';
 import './styles/style.css';
@@ -45,7 +46,7 @@ const App = () => {
           setAllServices={setAllServices}
           setAllCharacteristics={setAllCharacteristics}
         />
-        <ul className="ulProfile">{listItems}</ul>
+        {!isDisconnected && <ul className="ulProfile">{listItems}</ul>}
 
         <div className="main-route-place">
           <Routes>
@@ -53,16 +54,24 @@ const App = () => {
               path="/"
               element={
                 isDisconnected ? (
-                  <div style={{ padding: '1rem' }}>
-                    Please connect a device to view the performance interface.
-                  </div>
-                ) : null
+                  <Home />
+                ) : (
+                  <P2Pserver allCharacteristics={allCharacteristics} />
+                )
               }
             />
             <Route
               path="/P2P"
               element={
-                isDisconnected ? null : (
+                isDisconnected ? (
+                  <div style={{ padding: '2rem', textAlign: 'center' }}>
+                    <div className="alert alert-warning">
+                      <h4>🔌 Device Not Connected</h4>
+                      <p>Please connect a device first to access the performance interface.</p>
+                      <Link to="/" className="btn btn-primary">← Back to Home</Link>
+                    </div>
+                  </div>
+                ) : (
                   <P2Pserver allCharacteristics={allCharacteristics} />
                 )
               }

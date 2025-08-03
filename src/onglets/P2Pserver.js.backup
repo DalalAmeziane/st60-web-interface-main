@@ -46,17 +46,23 @@ const notifHandler = (event) => {
   if (type === 'D' || type === 'd') {
     // débit : on continue d’empiler (tu peux aussi limiter si tu veux)
     setThroughputData(prevData => [
-      ...prevData,
+      ...prevData.slice(-29),
       { label: prevData.length + 1, value: parseFloat(value.toFixed(0)) }
     ]);
   }
 
   if (type === 'L' || type === 'l') {
-    // Latence : accumulation continue pour le scrolling chart
-    setLatencyData(prevData => [
-      ...prevData,
-      { label: prevData.length + 1, value: parseFloat(value.toFixed(2)) }
-    ]);
+    // latence : on limite à 30 points
+    setLatencyData(prevData => {
+      if (prevData.length >= 30) {
+        return [{ label: 1, value: parseFloat(value.toFixed(2)) }];
+      } else {
+        return [
+          ...prevData,
+          { label: prevData.length + 1, value: parseFloat(value.toFixed(2)) }
+        ];
+      }
+    });
   }
 };
 
@@ -91,7 +97,8 @@ const notifHandler = (event) => {
       createLogElement(goWord, 1, "P2Pserver GO command sent");
       console.log("GO command sent via BLE");
 
-      // Active la collecte du débit pour 10s (pas de reset pour éviter hallucination)
+      // Active la collecte du débit pour 10s
+      setThroughputData([]); // reset du graphe débit
       setThroughputActive(true);
       if (throughputTimer.current) clearTimeout(throughputTimer.current);
       throughputTimer.current = setTimeout(() => {
@@ -121,20 +128,10 @@ const notifHandler = (event) => {
       <div className="container">
         <div className="row">
           <div className="col-12 mb-4 pb-5">
-            <ChartCard 
-              title="Throughput (Mbps)" 
-              data={throughputData} 
-              unit="Bytes/s"
-              color="#ff6b6b"
-            />
+            <ChartCard title="Throughput (Mbps)" data={throughputData} />
           </div>
           <div className="col-12 mb-4 pb-5">
-            <ChartCard 
-              title="Latency (ms)" 
-              data={latencyData} 
-              unit="ms"
-              color="#4ecdc4"
-            />
+            <ChartCard title="Latency (ms)" data={latencyData} />
           </div>
         </div>
       </div>
