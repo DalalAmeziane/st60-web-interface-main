@@ -96,18 +96,30 @@ const Header = (props) => {
     if (myDevice?.gatt?.connected) {
       myDevice.gatt.disconnect();
     }
-    document.getElementById("connectButton").disabled = false;
+    const buttonConnect = document.getElementById("connectButton");
+    if (buttonConnect) {
+      buttonConnect.disabled = false;
+      buttonConnect.innerHTML = "Connect";
+    }
     props.setIsDisconnected(true);
     props.setAllServices([]);
-    document.location.href = "/Web_Bluetooth_App_WBA";
+    props.setAllCharacteristics([]);
+    // Clear data and redirect to home page
+    window.location.hash = "/";
   }
 
   function onDisconnected() {
     console.log("HEADER - > Bluetooth Device disconnected");
-    document.getElementById("connectButton").disabled = false;
+    const buttonConnect = document.getElementById("connectButton");
+    if (buttonConnect) {
+      buttonConnect.disabled = false;
+      buttonConnect.innerHTML = "Connect";
+    }
     props.setIsDisconnected(true);
     props.setAllServices([]);
-    document.location.href = "/Web_Bluetooth_App_WBA";
+    props.setAllCharacteristics([]);
+    // Clear data and redirect to home page
+    window.location.hash = "/";
   }
 
   return (
