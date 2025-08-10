@@ -13,85 +13,63 @@ import {
 ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend);
 
 const colorMap = {
-  'Throughput (Mbps)': 'rgba(75, 192, 192, 1)', // bleu/vert
-  'Latency (ms)': 'rgba(255, 99, 132, 1)',      // rouge
+  'Throughput (Mbps)': 'rgba(75, 192, 192, 1)',   // teal
+  'Latency (ms)':      'rgba(255, 99, 132, 1)',   // red
 };
 
-const ChartCard = ({ title, data }) => {
-  if (!data || data.length === 0) {
-    return (
-      <div className="chart-card">
-        <h5 className="text-center">{title}</h5>
-        <p className="text-muted text-center">No data available</p>
-      </div>
-    );
-  }
-
+const ChartCard = ({ title, labels = [], values = [] }) => {
   const color = colorMap[title] || 'rgba(54, 162, 235, 1)';
 
-  const chartData = {
-    labels: data.map(point => point.label),
+  // keep labels/values aligned
+  const pad = Math.max(0, labels.length - values.length);
+  const paddedValues = [...Array(pad).fill(null), ...values].slice(-labels.length);
+
+  const data = {
+    labels,
     datasets: [{
       label: title,
-      data: data.map(point => point.value),
-      tension: 0.4,
-      borderWidth: 2,
-      pointRadius: 3,
-      pointHoverRadius: 6,
+      data: paddedValues,
+      showLine: true,
+      fill: false,                 // ⬅️ no area fill
+      tension: 0,                  // ⬅️ sharp/“pointy” corners
       borderColor: color,
-      backgroundColor: color,
-    }]
+      borderWidth: 2,
+      spanGaps: true,              // ignore nulls
+      pointRadius: 4,              // ⬅️ visible dots (peaks)
+      pointHoverRadius: 6,
+      pointBackgroundColor: color, // dot color
+      pointBorderColor: '#fff',
+      pointBorderWidth: 1,
+      pointHitRadius: 8,
+    }],
   };
 
-  // Ajuste l’axe Y en fonction du titre
-  let yOptions = {};
-if (title.includes('Throughput')) {
-  yOptions = {
-    min: 900,
-    max: 960,
-    ticks: {
-      stepSize: 10,
-    }
-  };
-}
-if (title.includes('Latency')) {
-  yOptions = {
-    min: 0,
-    max: 1,
-    ticks: {
-      stepSize: 0.1,
-    }
-  };
-}
+  let yOptions = { beginAtZero: true };
+  if (title.includes('Throughput')) {
+    yOptions = { beginAtZero: true, min: 0, suggestedMax: 1000, ticks: { stepSize: 100 } };
+  } else if (title.includes('Latency')) {
+    yOptions = { beginAtZero: true, min: 0, suggestedMax: 1, ticks: { stepSize: 0.1 } };
+  }
 
   const options = {
-  responsive: true,
-  maintainAspectRatio: false,
-  animation: {
-    duration: 300,
-    easing: 'easeOutQuart',
-  },
-  scales: {
-    y: yOptions,
-    x: {
-      ticks: {
-        // ici tu peux laisser par défaut pour afficher ton compteur
-        autoSkip: true,
-        maxRotation: 0,
-        minRotation: 0,
-      }
-    }
-  },
-  plugins: {
-    legend: { display: false },
-  },
-};
-
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 0 },
+    scales: {
+      x: {
+        type: 'category',
+        ticks: { autoSkip: false, maxRotation: 60, minRotation: 60 },
+      },
+      y: yOptions,
+    },
+    plugins: { legend: { display: false } },
+  };
 
   return (
-    <div className="chart-card" style={{ height: "300px" }}>
+    <div className="chart-card" style={{ height: '300px' }}>
       <h5 className="text-center">{title}</h5>
-      <Line data={chartData} options={options} />
+      <Line data={data} options={options} />
+      {labels.length === 0 && <p className="text-muted text-center mt-2">No data available</p>}
     </div>
   );
 };

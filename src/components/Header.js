@@ -1,14 +1,17 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import logoST from "../images/st-logo.svg";
 
-var myDevice;
+let myDevice;
 let showAllDevices = false;
 
 const Header = (props) => {
+  const navigate = useNavigate();
+
   async function connection() {
     console.log("Requesting Bluetooth Device...");
     try {
-      let options = showAllDevices
+      const options = showAllDevices
         ? { acceptAllDevices: true }
         : {
             filters: [
@@ -41,13 +44,11 @@ const Header = (props) => {
       let queue = Promise.resolve();
 
       for (const service of services) {
-        console.log(service);
         createLogElement(service, 3, "SERVICE");
         props.setAllServices((prev) => [...prev, { service }]);
 
         queue = queue.then(async () => {
           const characteristics = await service.getCharacteristics();
-          console.log(characteristics);
           console.log(
             `HEADER -> Service: ${service.device.name} - ${service.uuid}`
           );
@@ -57,12 +58,11 @@ const Header = (props) => {
               ...prev,
               { characteristic },
             ]);
-            console.log(
-              `HEADER >> Characteristic: ${characteristic.uuid} ${getSupportedProperties(
-                characteristic
-              )}`
+            createLogElement(
+              characteristic,
+              4,
+              `CHARACTERISTIC (${getSupportedProperties(characteristic)})`
             );
-            createLogElement(characteristic, 4, "CHARACTERISTIC");
           }
         });
       }
@@ -75,6 +75,10 @@ const Header = (props) => {
         buttonConnect.disabled = true;
       }
       props.setIsDisconnected(false);
+
+      // UI: cacher l’accueil et aller au dashboard sans recharger la page
+      document.getElementById("readmeInfo")?.classList.add("hidden");
+      navigate("/P2P");
     } catch (error) {
       console.error(error);
       createLogElement(error.toString(), 1, "CONNECTION ERROR");
@@ -99,15 +103,21 @@ const Header = (props) => {
     document.getElementById("connectButton").disabled = false;
     props.setIsDisconnected(true);
     props.setAllServices([]);
-    document.location.href = "/Web_Bluetooth_App_WBA";
+
+    // UI: ré-afficher l’accueil et rester en SPA
+    document.getElementById("readmeInfo")?.classList.remove("hidden");
+    navigate("/");
   }
 
   function onDisconnected() {
-    console.log("HEADER - > Bluetooth Device disconnected");
+    console.log("HEADER -> Bluetooth Device disconnected");
     document.getElementById("connectButton").disabled = false;
     props.setIsDisconnected(true);
     props.setAllServices([]);
-    document.location.href = "/Web_Bluetooth_App_WBA";
+
+    // UI: ré-afficher l’accueil et rester en SPA
+    document.getElementById("readmeInfo")?.classList.remove("hidden");
+    navigate("/");
   }
 
   return (
@@ -185,7 +195,7 @@ const Header = (props) => {
 
 function checkBoxDeviceFilter() {
   const checkBox = document.getElementById("checkboxFilter");
-  showAllDevices = checkBox?.checked;
+  showAllDevices = !!checkBox?.checked;
   console.log(
     `Turn ${showAllDevices ? "Off" : "On"} the Bluetooth device Filter for the connection`
   );

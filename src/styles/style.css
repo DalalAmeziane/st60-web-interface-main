@@ -571,9 +571,6 @@ tr:last-child td {
   border-bottom-width: 0;
 }
 
-
-
-
 /*#################  HEALTH THERMOMETER ################*/
 
 .rcorners1 {
@@ -663,5 +660,5 @@ tr:last-child td {
   margin-bottom: 20px;
 }
 
-
+.hidden {display: none !important; }
  
