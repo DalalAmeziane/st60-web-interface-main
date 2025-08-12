@@ -1,8 +1,9 @@
+// P2Pserver.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import ChartCard from '../components/ChartCard';
 import { createLogElement } from "../components/Header";
 
-/* Stop notifications safely even if GATT is gone */
+/* Utils */
 async function safeStopNotifications(char, handler) {
   try {
     if (!char) return;
@@ -15,6 +16,13 @@ async function safeStopNotifications(char, handler) {
 }
 
 const GRAPH_MAX_LABELS = 50;
+const STALE_MS_D = 1500;
+const STALE_MS_L = 1500;
+
+// Nouveau: santé des notifs
+const HEALTH_CHECK_MS = 2000;  // période de vérif
+const NOTIF_STUCK_MS  = 4000;  // si pas de notif depuis >4s => resubscribe
+const RECONNECT_MS    = 10000; // si pas de notif depuis >10s => tentative reconnect
 
 const P2Pserver = ({ allCharacteristics }) => {
   const [notifyChar, setNotifyChar] = useState(null);
@@ -28,15 +36,23 @@ const P2Pserver = ({ allCharacteristics }) => {
   const lastThroughputRef = useRef(0.0);
   const lastLatencyRef   = useRef(null);
 
+  const lastDtsRef = useRef(0);
+  const lastLtsRef = useRef(0);
+
   const samplerRef = useRef(null);
 
-  // test state
+  // état test
+  const [phase, setPhase] = useState('idle');
   const [testRemaining, setTestRemaining] = useState(0);
-  const [phase, setPhase] = useState('idle'); // idle | starting | running
-  const phaseRef = useRef('idle');            // to use inside timeouts
+  const phaseRef = useRef('idle');
   const testTimerRef = useRef(null);
   const startWatchdogRef = useRef(null);
   const safetyUnlockRef = useRef(null);
+
+  // Nouveau: watchdog notifs
+  const lastAnyNotifTsRef = useRef(0);
+  const healthTimerRef = useRef(null);
+  const deviceRef = useRef(null); // pour écouter 'gattserverdisconnected'
 
   const setPhaseSafe = (p) => { phaseRef.current = p; setPhase(p); };
 
@@ -50,9 +66,11 @@ const P2Pserver = ({ allCharacteristics }) => {
 
     setNotifyChar(notify ? notify.characteristic : null);
     setReadWriteChar(rw ? rw.characteristic : null);
+    deviceRef.current = notify?.characteristic?.service?.device || null;
 
-    // reset screen
+    // reset
     stopSampler();
+    clearHealthTimer();
     setNotifyOn(false);
     finishTest();
     setTimeLabels([]);
@@ -60,15 +78,39 @@ const P2Pserver = ({ allCharacteristics }) => {
     setLatencyValues([]);
     lastThroughputRef.current = 0.0;
     lastLatencyRef.current = null;
+    lastDtsRef.current = 0;
+    lastLtsRef.current = 0;
+    lastAnyNotifTsRef.current = 0;
+
+    // écoute déconnexion GATT (pour MAJ bouton)
+    try {
+      if (deviceRef.current) {
+        deviceRef.current.addEventListener('gattserverdisconnected', onGattDisconnected);
+      }
+    } catch {}
 
     return () => {
       stopSampler();
+      clearHealthTimer();
       safeStopNotifications(notify?.characteristic, notifHandler);
       cleanupTestTimers();
       finishTest();
+      try {
+        if (deviceRef.current) {
+          deviceRef.current.removeEventListener('gattserverdisconnected', onGattDisconnected);
+        }
+      } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allCharacteristics]);
+
+  const onGattDisconnected = () => {
+    // remet l'UI en OFF, arrête timers
+    setNotifyOn(false);
+    clearHealthTimer();
+    stopSampler();
+    finishTest();
+  };
 
   const nowHHMMSS = () =>
     new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -82,7 +124,7 @@ const P2Pserver = ({ allCharacteristics }) => {
   const finishTest = () => {
     cleanupTestTimers();
     setTestRemaining(0);
-    setPhaseSafe('idle'); // <- re-enable button
+    setPhaseSafe('idle');
   };
 
   // BLE notifications
@@ -91,10 +133,13 @@ const P2Pserver = ({ allCharacteristics }) => {
     const type = String.fromCharCode(dv.getUint8(0));
     const val  = dv.getFloat32(1, true);
 
+    const now = Date.now();
+    lastAnyNotifTsRef.current = now;
+
     if (type === 'D' || type === 'd') {
       lastThroughputRef.current = parseFloat(val.toFixed(0));
+      lastDtsRef.current = now;
 
-      // start countdown on first throughput
       if (phaseRef.current === 'starting') {
         if (startWatchdogRef.current) { clearTimeout(startWatchdogRef.current); startWatchdogRef.current = null; }
         setPhaseSafe('running');
@@ -109,14 +154,16 @@ const P2Pserver = ({ allCharacteristics }) => {
       }
     } else if (type === 'L' || type === 'l') {
       lastLatencyRef.current = parseFloat(val.toFixed(2));
+      lastLtsRef.current = now;
     }
   };
 
-  // 1 Hz sampler for both charts
+  // sampler 1 Hz
   const startSampler = () => {
     if (samplerRef.current) return;
     samplerRef.current = setInterval(() => {
       const label = nowHHMMSS();
+      const now = Date.now();
 
       setTimeLabels(prev => {
         const next = [...prev, label];
@@ -124,13 +171,15 @@ const P2Pserver = ({ allCharacteristics }) => {
       });
 
       setThroughputValues(prev => {
-        const v = lastThroughputRef.current;
+        let v = lastThroughputRef.current;
+        if (!lastDtsRef.current || (now - lastDtsRef.current) > STALE_MS_D) v = 0.0;
         const next = [...prev, v];
         return next.length > GRAPH_MAX_LABELS ? next.slice(1) : next;
       });
 
       setLatencyValues(prev => {
-        const v = (lastLatencyRef.current === null) ? null : lastLatencyRef.current;
+        let v = lastLatencyRef.current;
+        if (!lastLtsRef.current || (now - lastLtsRef.current) > STALE_MS_L) v = 0.0;
         const next = [...prev, v];
         return next.length > GRAPH_MAX_LABELS ? next.slice(1) : next;
       });
@@ -144,6 +193,64 @@ const P2Pserver = ({ allCharacteristics }) => {
     }
   };
 
+  // ===== Watchdog notifs =====
+  const clearHealthTimer = () => {
+    if (healthTimerRef.current) {
+      clearInterval(healthTimerRef.current);
+      healthTimerRef.current = null;
+    }
+  };
+
+  const tryResubscribe = async () => {
+    if (!notifyChar) return;
+    try {
+      // stop->start + re-bind
+      await notifyChar.stopNotifications().catch(() => {});
+      try { notifyChar.removeEventListener('characteristicvaluechanged', notifHandler); } catch {}
+      await notifyChar.startNotifications();
+      notifyChar.addEventListener('characteristicvaluechanged', notifHandler);
+      // petit log
+      createLogElement(notifyChar, 3, "Auto re-subscribed to notifications");
+    } catch (e) {
+      console.warn("Resubscribe failed:", e);
+    }
+  };
+
+  const tryReconnect = async () => {
+    const dev = deviceRef.current;
+    if (!dev) return;
+    try {
+      dev.gatt.disconnect();
+      setNotifyOn(false);
+      clearHealthTimer();
+      stopSampler();
+      finishTest();
+      // L’utilisateur cliquera à nouveau sur "Notify ON"
+      createLogElement(dev, 3, "BLE link restarted, please toggle Notify ON again");
+    } catch (e) {
+      console.warn("Reconnect failed:", e);
+    }
+  };
+
+  const startHealthTimer = () => {
+    if (healthTimerRef.current) return;
+    lastAnyNotifTsRef.current = Date.now(); // reset
+    healthTimerRef.current = setInterval(async () => {
+      const now = Date.now();
+      const delta = now - lastAnyNotifTsRef.current;
+      const connected = !!notifyChar?.service?.device?.gatt?.connected;
+
+      if (!connected) return; // le listener gattserverdisconnected gère l'UI
+
+      if (delta > RECONNECT_MS) {
+        await tryReconnect();
+      } else if (delta > NOTIF_STUCK_MS) {
+        await tryResubscribe();
+      }
+    }, HEALTH_CHECK_MS);
+  };
+  // ===========================
+
   // Toggle notifications
   const toggleNotifications = async () => {
     if (!notifyChar) return;
@@ -152,23 +259,32 @@ const P2Pserver = ({ allCharacteristics }) => {
         await notifyChar.startNotifications();
         notifyChar.addEventListener('characteristicvaluechanged', notifHandler);
         setNotifyOn(true);
+
+        lastThroughputRef.current = 0.0;
+        lastLatencyRef.current = null;
+        lastDtsRef.current = 0;
+        lastLtsRef.current = 0;
+        lastAnyNotifTsRef.current = Date.now();
+
         startSampler();
+        startHealthTimer();
+
         createLogElement(notifyChar, 3, "P2Pserver ENABLE NOTIFICATION");
       } else {
         await safeStopNotifications(notifyChar, notifHandler);
         setNotifyOn(false);
+        clearHealthTimer();
         stopSampler();
-        finishTest(); // make sure button is re-enabled
+        finishTest();
         createLogElement(notifyChar, 3, "P2Pserver DISABLE NOTIFICATION");
       }
     } catch (err) {
       console.error("Notification toggle failed:", err);
-      // fail-safe
       finishTest();
     }
   };
 
-  // Launch 10 s throughput measurement – countdown starts on first 'D'
+  // GO 10 s
   const onStartThroughputClick = async () => {
     if (!readWriteChar || phaseRef.current !== 'idle') return;
     try {
@@ -179,14 +295,13 @@ const P2Pserver = ({ allCharacteristics }) => {
       cleanupTestTimers();
       setPhaseSafe('starting');
       setTestRemaining(0);
-      lastThroughputRef.current = 0;
+      lastThroughputRef.current = 0.0;
+      lastDtsRef.current = 0;
 
-      // 1) if no first 'D' in 5 s -> unlock
       startWatchdogRef.current = setTimeout(() => {
         if (phaseRef.current === 'starting') finishTest();
       }, 5000);
 
-      // 2) hard safety unlock after 15 s (whatever happens)
       safetyUnlockRef.current = setTimeout(() => {
         if (phaseRef.current !== 'idle') finishTest();
       }, 15000);
