@@ -1,14 +1,14 @@
 {
   "files": {
     "main.css": "/st60-web-interface-main/static/css/main.0d3b0b22.css",
-    "main.js": "/st60-web-interface-main/static/js/main.5a8d50c7.js",
+    "main.js": "/st60-web-interface-main/static/js/main.17c4cf91.js",
     "static/media/st-logo.svg": "/st60-web-interface-main/static/media/st-logo.01d65641d9828fd6847ef785b4019063.svg",
     "index.html": "/st60-web-interface-main/index.html",
     "main.0d3b0b22.css.map": "/st60-web-interface-main/static/css/main.0d3b0b22.css.map",
-    "main.5a8d50c7.js.map": "/st60-web-interface-main/static/js/main.5a8d50c7.js.map"
+    "main.17c4cf91.js.map": "/st60-web-interface-main/static/js/main.17c4cf91.js.map"
   },
   "entrypoints": [
     "static/css/main.0d3b0b22.css",
-    "static/js/main.5a8d50c7.js"
+    "static/js/main.17c4cf91.js"
   ]
 }
