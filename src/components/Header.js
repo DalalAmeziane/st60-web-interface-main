@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect} from "react";
 import { useNavigate } from "react-router-dom";
 import logoST from "../images/st-logo.svg";
 
@@ -7,6 +7,12 @@ let showAllDevices = false;
 
 const Header = (props) => {
   const navigate = useNavigate();
+
+
+  useEffect(() => { 
+    document.title = "ST60 Performance";
+
+  }, []);
 
   async function connection() {
     console.log("Requesting Bluetooth Device...");
@@ -22,7 +28,9 @@ const Header = (props) => {
               { namePrefix: "p2pR_" },
               { namePrefix: "p2pSext_" },
               { namePrefix: "DT" },
+              { namePrefix: "ST60" },
             ],
+
             optionalServices: [
               "0000fe40-cc7a-482a-984a-7f2ed5b3e58f",
               "0000180d-0000-1000-8000-00805f9b34fb",
@@ -128,7 +136,7 @@ const Header = (props) => {
             <img className="logoST" src={logoST} alt="logo st" />
           </div>
         </div>
-        <div className="textTitle">WBA</div>
+        <div className="textTitle">ST60 Performance</div>
         <div className="row mt-3">
           <div className="d-grid col-xs-12 col-sm-4 col-md-4 col-lg-4 p-2">
             <button
